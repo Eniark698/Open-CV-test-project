@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  train:
+    build:
+      context: .
+      dockerfile: train/Dockerfile
+    container_name: train_service
+    volumes:
+      - ./data:/app/data
+      - ./model:/app/model
+
+  inference:
+    build:
+      context: .
+      dockerfile: inference/Dockerfile
+    container_name: inference_service
+    volumes:
+      - ./data:/app/data
+      - ./model:/app/model
+      - ./inference/input:/app/input
+      - ./inference/output:/app/output
+    environment:
+      - INPUT_FOLDER/app/input
+      - OUTPUT_FOLDER=/app/output
+      - MODEL_PATH=/app/model/unet_model.keras
