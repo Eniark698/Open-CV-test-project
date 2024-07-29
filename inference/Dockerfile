@@ -55,9 +55,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Build the final training image
 FROM base AS train
 
+
 WORKDIR /app
 RUN mkdir input output
-
 COPY inference/inference.py /app/
 
 CMD ["python", "inference.py"]

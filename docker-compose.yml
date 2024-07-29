@@ -21,6 +21,6 @@ services:
       - ./inference/input:/app/input
       - ./inference/output:/app/output
     environment:
-      - INPUT_FOLDER/app/input
-      - OUTPUT_FOLDER=/app/output
+      - INPUT_FOLDER=/app/input/
+      - OUTPUT_FOLDER=/app/output/
       - MODEL_PATH=/app/model/unet_model.keras

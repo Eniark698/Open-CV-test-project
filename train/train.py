@@ -12,7 +12,7 @@ from tensorflow.keras.models import Model
 BATCH_SIZE = 8
 IMG_SIZE = (256, 256)
 
-# Load the CSV file
+# Load the CSV file containing ship segmentations
 train_csv = pd.read_csv('./data/train_ship_segmentations_v2.csv')
 
 # Filter out images with no ships
@@ -29,7 +29,7 @@ def rle_decode(mask_rle, shape=(768, 768)):
         img[lo:hi] = 1
     return img.reshape(shape).T
 
-# Data augmentation
+# Data augmentation using ImageDataGenerator
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 data_gen_args = dict(horizontal_flip=True,
@@ -42,6 +42,7 @@ data_gen_args = dict(horizontal_flip=True,
 image_datagen = ImageDataGenerator(**data_gen_args)
 mask_datagen = ImageDataGenerator(**data_gen_args)
 
+# Function to augment both image and mask
 def augment_data(image, mask):
     seed = np.random.randint(1e6)
     aug_image = image_datagen.random_transform(image, seed=seed)
@@ -99,9 +100,7 @@ train_df, val_df = train_test_split(train_csv, test_size=0.2, random_state=42)
 train_gen = AugmentedShipDataGenerator(train_df, './data/train_v2', batch_size=BATCH_SIZE, img_size=IMG_SIZE)
 val_gen = AugmentedShipDataGenerator(val_df, './data/train_v2', batch_size=BATCH_SIZE, img_size=IMG_SIZE)
 
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate
-from tensorflow.keras.models import Model
-
+# Define a small U-Net model for semantic segmentation
 def small_unet_model(input_size=(256, 256, 3)):
     inputs = Input(input_size)
 
@@ -152,20 +151,25 @@ def small_unet_model(input_size=(256, 256, 3)):
     model = Model(inputs=[inputs], outputs=[outputs])
     return model
 
+# Instantiate the model
 model = small_unet_model()
 
+# Define the dice coefficient metric
 def dice_coefficient(y_true, y_pred, smooth=1):
     y_true_f = tf.cast(tf.keras.backend.flatten(y_true), tf.float32)
     y_pred_f = tf.cast(tf.keras.backend.flatten(y_pred), tf.float32)
     intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
     return (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
 
+# Define the dice loss function
 def dice_loss(y_true, y_pred):
     return 1 - dice_coefficient(y_true, y_pred)
 
+# Compile the model with Adam optimizer and dice loss
 model.compile(optimizer='adam', loss=dice_loss, metrics=[dice_coefficient])
 
 # Train the model
 history = model.fit(train_gen, validation_data=val_gen, epochs=3)
 
+# Save the trained model
 model.save('./model/unet_model.keras')

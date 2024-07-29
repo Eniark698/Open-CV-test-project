@@ -2,25 +2,42 @@ import os
 import numpy as np
 import cv2
 import tensorflow as tf
-from tensorflow.keras.models import load_model
+from tensorflow.keras.utils import Sequence, register_keras_serializable
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate
+from tensorflow.keras.models import Model,load_model
+from tensorflow.keras.losses import Loss
+from tensorflow.keras.metrics import Metric
+
+
+
+@register_keras_serializable()
+def dice_loss(y_true, y_pred):
+    smooth = 1.
+    y_true_f = tf.reshape(y_true, [-1])
+    y_pred_f = tf.reshape(y_pred, [-1])
+    intersection = tf.reduce_sum(y_true_f * y_pred_f)
+    score = (2. * intersection + smooth) / (tf.reduce_sum(y_true_f) + tf.reduce_sum(y_pred_f) + smooth)
+    return 1. - score
+
+@register_keras_serializable()
+def dice_coefficient(y_true, y_pred):
+    smooth = 1.
+    y_true_f = tf.reshape(y_true, [-1])
+    y_pred_f = tf.reshape(y_pred, [-1])
+    intersection = tf.reduce_sum(y_true_f * y_pred_f)
+    score = (2. * intersection + smooth) / (tf.reduce_sum(y_true_f) + tf.reduce_sum(y_pred_f) + smooth)
+    return score
 
 # Load environment variables
 INPUT_FOLDER = os.getenv('INPUT_FOLDER', './inference/input/')
 OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', './inference/output/')
 MODEL_PATH = os.getenv('MODEL_PATH', './model/unet_model.keras')
 
+
 # Define global variables
 IMG_SIZE = (256, 256)
 
-
-def dice_coefficient(y_true, y_pred, smooth=1):
-    y_true_f = tf.cast(tf.keras.backend.flatten(y_true), tf.float32)
-    y_pred_f = tf.cast(tf.keras.backend.flatten(y_pred), tf.float32)
-    intersection = tf.keras.backend.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (tf.keras.backend.sum(y_true_f) + tf.keras.backend.sum(y_pred_f) + smooth)
-
-def dice_loss(y_true, y_pred):
-    return 1 - dice_coefficient(y_true, y_pred)
 
 
 # Function to preprocess the image
@@ -39,9 +56,9 @@ def postprocess_mask(mask, original_size):
     mask = cv2.resize(mask, original_size)
     return mask
 
+
 # Load the trained model
 model = load_model(MODEL_PATH, custom_objects={'dice_loss': dice_loss, 'dice_coefficient': dice_coefficient})
-
 # Create output folder if it doesn't exist
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
